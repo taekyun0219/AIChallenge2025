@@ -12,6 +12,16 @@ from ldm.ptp import ptp_SD, ptp_utils
 from ldm.models.diffusion.ddim import DDIMSampler,DDIMSampler_withsam
 from PIL import Image
 import numpy as np
+import open_clip
+import pandas as pd
+import zipfile
+
+CFG = dict(SUB_DIR='./submission_result')
+os.makedirs(CFG['SUB_DIR'], exist_ok=True)
+out_imgs = []
+out_img_names = []
+
+
 
 start_time = time.strftime('%Y-%m-%d-%H-%M-%S')
 
@@ -42,7 +52,7 @@ if __name__ == "__main__":
     model = model.cuda()
 
     model.usesam = True
-    dataset = MyDataset(img_dir='example', caption_dir='example', split='test',use_sam=True) 
+    dataset = MyDataset(root_dir="test", csv_path="test.csv", split="test") 
     dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size, shuffle=False)
     for batch_idx, batch in enumerate(dataloader):
         multiColor_test = True
@@ -96,7 +106,40 @@ if __name__ == "__main__":
  
         save_images(x_samples, save_root = save_root, batch = batch, name_prompt=True)
 
-
+        for i in range(x_samples.shape[0]):
+            img_id = batch['name'][i]  # ID 또는 파일명
+            img = x_samples[i]         # torch.Tensor: C,H,W (0~1)
+            img = (img.permute(1,2,0).cpu().numpy() * 255).astype(np.uint8)
+            img = Image.fromarray(img)
+            img.save(f"{CFG['SUB_DIR']}/{img_id}.png")
+            out_imgs.append(img)
+            out_img_names.append(os.path.splitext(img_id)[0])  # 확장자 제거 (DACON 기준)
         
+    # 2. 임베딩 추출 및 embed_submission.csv 생성
+    clip_model, _, clip_preprocess = open_clip.create_model_and_transforms(
+        "ViT-L-14", pretrained="openai"
+    )
+    clip_model = clip_model.cuda()
+    feat_imgs = []
+    for output_img, img_id in zip(out_imgs, out_img_names):
+        input_tensor = clip_preprocess(output_img).unsqueeze(0).cuda()
+        with torch.no_grad():
+            feat_img = clip_model.encode_image(input_tensor)
+            feat_img /= feat_img.norm(dim=-1, keepdim=True)
+        feat_img = feat_img.detach().cpu().numpy().reshape(-1)
+        feat_imgs.append(feat_img)
+    feat_imgs = np.array(feat_imgs)
+    vec_columns = [f'vec_{i}' for i in range(feat_imgs.shape[1])]
+    feat_submission = pd.DataFrame(feat_imgs, columns=vec_columns)
+    feat_submission.insert(0, 'ID', out_img_names)
+    feat_submission.to_csv(f"{CFG['SUB_DIR']}/embed_submission.csv", index=False)
 
+    # 3. ZIP 생성
+    zip_path = './submission.zip'
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for file_name in os.listdir(CFG['SUB_DIR']):
+            file_path = os.path.join(CFG['SUB_DIR'], file_name)
+            if os.path.isfile(file_path) and not file_name.startswith('.'):
+                zipf.write(file_path, arcname=file_name)
+    print(f"✅ 압축 완료: {zip_path}")
 

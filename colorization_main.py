@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
         dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size, shuffle=True)
         logger = ImageLogger(batch_frequency=logger_freq)
-        trainer = pl.Trainer(gpus=n_gpu, precision=32, callbacks=[logger])
+        trainer = pl.Trainer(gpus=n_gpu, precision=32, max_epochs=1, callbacks=[logger])
         # Train!
         trainer.fit(model, dataloader)
 
