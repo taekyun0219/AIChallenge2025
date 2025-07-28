@@ -13,74 +13,55 @@ from einops import rearrange
 
 
 class MyDataset(Dataset):
-    def __init__(self, img_dir, caption_dir=None, split='train',img_size=256, use_sam=False):
+    def __init__(self, root_dir, csv_path, split='train',img_size=256):
 
-        assert split in ['train','val','test']
+        #assert split in ['train','val','test']
         self.split = split
-        self.img_dir = os.path.join(img_dir,self.split+'2017')
+        self.img_size=img_size
+        
+        self.data = pd.read_csv(csv_path)
+        self.root_dir = root_dir
+        
+        #이미지 정규화 :[0,1]->[-1,1]
         norm_mean = [0.5, 0.5, 0.5]
         norm_std = [0.5, 0.5, 0.5]
         self.norm = transforms.Normalize(norm_mean, norm_std)
-        self.istest = False
-        self.use_sam = use_sam
-        self.img_size = img_size
+        
         if split == 'train':
-            caption_path = os.path.join(caption_dir,'caption_train.json')
             self.transform = transforms.Compose([
                 transforms.RandomResizedCrop((img_size,img_size),scale=(0.8, 1.0), interpolation=3),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 ])
-            self.caption_file = json.load(open(caption_path,'r'))
-            self.keys = list(self.caption_file.keys())
+        else:
+            self.transform = transforms.Compose([
+                transforms.Resize((img_size, img_size)),,
+                transforms.ToTensor(),
+            ])
 
-        elif split == 'val':
-            caption_path = os.path.join(caption_dir, 'caption_val.json')      
+        # elif split == 'val':
+        #     caption_path = os.path.join(caption_dir, 'caption_val.json')      
  
-            self.transform = transforms.Compose([transforms.Resize((img_size,img_size)),
-                                                transforms.ToTensor(),])
-            self.caption_file = json.load(open(caption_path,'r'))
-            self.keys = list(self.caption_file.keys())
+        #     self.transform = transforms.Compose([transforms.Resize((img_size,img_size)),
+        #                                         transforms.ToTensor(),])
+        #     self.caption_file = json.load(open(caption_path,'r'))
+        #     self.keys = list(self.caption_file.keys())
 
-        elif split == 'test':
-            self.istest = True
-            self.img_dir = 'example'
-            if self.use_sam: 
-                caption_path = os.path.join('sam_mask','pairs.json')
-            else:    
-                caption_path = os.path.join('example','test-pair.json')
+        # elif split == 'test':
+        #     self.istest = True
+        #     self.img_dir = 'example'
+        #     if self.use_sam: 
+        #         caption_path = os.path.join('sam_mask','pairs.json')
+        #     else:    
+        #         caption_path = os.path.join('example','test-pair.json')
 
                 
-            self.transform = transforms.Compose([# CenterCropLongEdge(),
-                                            transforms.Resize((img_size, img_size)),
-                                            transforms.ToTensor(),
-                                            ])
-            self.pairs = json.load(open(caption_path,'r'))
-        
-    def get_img(self, img_name):
-        img_pth = os.path.join(self.img_dir, img_name)
-        img = Image.open(img_pth).convert('RGB')
-        img = self.transform(img)
+        #     self.transform = transforms.Compose([# CenterCropLongEdge(),
+        #                                     transforms.Resize((img_size, img_size)),
+        #                                     transforms.ToTensor(),
+        #                                     ])
+        #     self.pairs = json.load(open(caption_path,'r'))
 
-        img_lab = rgb2lab(img)
-      
-        img_l = img_lab[[0,],:,:].repeat(3,1,1)
-        img_ab = img_lab[1:,:,:]
-
-        img = self.norm(img)
-
-        img_l = rearrange(img_l,' c h w -> h w c')
-        img = rearrange(img,' c h w -> h w c')
-        img_ab = rearrange(img_ab,' c h w -> h w c')
-
-        return img_l, img, img_ab
-    
-    def get_caption(self, key):
-        # a list of indices for a sentence
-        captions = self.caption_file[key]
-        index = random.choice([i for i in range(len(captions))])
-        cap = captions[index]
-        return cap,index
 
     def get_mask(self, img_name):
         mask_dir = 'sam_mask/select_masks'
@@ -99,27 +80,51 @@ class MyDataset(Dataset):
         
 
     def __len__(self):
-        if not self.istest:    
-            return len(self.keys)
-        else:
-            return len(self.pairs)
+        return len(self.data)
 
     def __getitem__(self, idx):
-        if not self.istest:
-            key = self.keys[idx]
-            img_l, img, img_ab = self.get_img(key)
-            cap, cap_idx = self.get_caption(key)
-        else:
-            key, cap = self.pairs[idx]
-            img_l, img, img_ab = self.get_img(key)
-        target = img
-        prompt = cap
-        source = img_l
-        if not self.use_sam: 
-            return dict(jpg=target, txt=prompt, hint=source, name=key)
-        else:
-            mask = self.get_mask(key)
-            return dict(jpg=target, txt=prompt, hint=source, name=key, mask=mask)
+        row = self.data.iloc[idx]
+        
+        input_img_path = os.path.join(self.root_dir, row['input_img_path'])
+        input_img = Image.open(input_img_path).convert('RGB')
+        input_img = self.transform(input_img)
+        input_img = self.norm(input_img)
+        caption = row['caption']
+
+        if self.split == 'train':
+            gt_img_path = os.path.join(self.root_dir, row['gt_img_path'])
+            gt_img = Image.open(gt_img_path).convert('RGB')
+            gt_img = self.transform(gt_img)
+            gt_img = self.norm(gt_img)
+            return {
+                "bw": input_img,          # 흑백 입력 이미지 (실제로는 3채널이지만 흑백 이미지임)
+                "color": gt_img,          # 컬러 정답 이미지
+                "caption": caption,       # 캡션
+                "name": os.path.basename(input_img_path)
+            }
+        else:  # test/val
+            id_name = row.get('ID', os.path.basename(input_img_path))
+            return {
+                "bw": input_img,
+                "caption": caption,
+                "name": id_name
+            }
+        
+        # if not self.istest:
+        #     key = self.keys[idx]
+        #     img_l, img, img_ab = self.get_img(key)
+        #     cap, cap_idx = self.get_caption(key)
+        # else:
+        #     key, cap = self.pairs[idx]
+        #     img_l, img, img_ab = self.get_img(key)
+        # target = img
+        # prompt = cap
+        # source = img_l
+        # if not self.use_sam: 
+        #     return dict(jpg=target, txt=prompt, hint=source, name=key)
+        # else:
+        #     mask = self.get_mask(key)
+        #     return dict(jpg=target, txt=prompt, hint=source, name=key, mask=mask)
 
 
 def rgb2xyz(rgb): 

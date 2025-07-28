@@ -80,7 +80,7 @@ if __name__ == "__main__":
         model.sd_locked = sd_locked
         model.only_mid_control = only_mid_control
 
-        dataset = MyDataset(img_dir="/data/cz-data/coco/",caption_dir='resources/coco') 
+        dataset = MyDataset(root_dir="train", csv_path="train.csv", split="train") 
 
         dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size, shuffle=True)
         logger = ImageLogger(batch_frequency=logger_freq)
@@ -101,12 +101,12 @@ if __name__ == "__main__":
         if args.multicolor: # test demo
             if args.usesam: # -m -s
                 model.usesam = True
-                dataset = MyDataset(img_dir='example', caption_dir='sam_mask', split='test',use_sam=True) 
+                dataset = MyDataset(root_dir="test", csv_path="test.csv", split="test") 
                 dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size, shuffle=False)
                 trainer.test(model, dataloader)
             else: # -m
                 model.usesam = False
-                dataset = MyDataset(img_dir='example', caption_dir='example', split='test') 
+                dataset = MyDataset(root_dir="test", csv_path="test.csv", split="test") 
                 dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size, shuffle=False)
                 trainer.test(model, dataloader)
         else: # val
@@ -114,4 +114,3 @@ if __name__ == "__main__":
             dataset = MyDataset(img_dir="/data/cz-data/coco/", caption_dir='resources/coco', split='val') # 
             dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size, shuffle=False)
             trainer.test(model, dataloader)
-

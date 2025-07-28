@@ -142,4 +142,3 @@ if __name__ == "__main__":
             if os.path.isfile(file_path) and not file_name.startswith('.'):
                 zipf.write(file_path, arcname=file_name)
     print(f"✅ 압축 완료: {zip_path}")
-
