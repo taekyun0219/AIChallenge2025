@@ -13,11 +13,11 @@ from einops import rearrange
 
 
 class MyDataset(Dataset):
-    def __init__(self, img_dir, caption_dir=None, split='train',img_size=256, use_sam=False):
+    def __init__(self, img_dir, caption_dir=None, split='train',img_size=512, use_sam=False):
 
         assert split in ['train','val','test']
         self.split = split
-        self.img_dir = os.path.join(img_dir,self.split+'2017')
+        self.img_dir = img_dir
         norm_mean = [0.5, 0.5, 0.5]
         norm_std = [0.5, 0.5, 0.5]
         self.norm = transforms.Normalize(norm_mean, norm_std)

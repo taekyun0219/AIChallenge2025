@@ -59,8 +59,9 @@ class FrozenT5Embedder(AbstractEncoder):
     """Uses the T5 transformer encoder for text"""
     def __init__(self, version="google/t5-v1_1-large", device="cuda", max_length=77, freeze=True):  # others are google/t5-v1_1-xl and google/t5-v1_1-xxl
         super().__init__()
-        self.tokenizer = T5Tokenizer.from_pretrained(version)
-        self.transformer = T5EncoderModel.from_pretrained(version)
+        self.tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+        self.transformer = CLIPTextModel.from_pretrained( "openai/clip-vit-large-patch14")
+     
         self.device = device
         self.max_length = max_length   # TODO: typical value?
         if freeze:
@@ -96,8 +97,8 @@ class FrozenCLIPEmbedder(AbstractEncoder):
                  freeze=True, layer="last", layer_idx=None):  # clip-vit-base-patch32 "openai/clip-vit-large-patch14"
         super().__init__()
         assert layer in self.LAYERS
-        self.tokenizer = CLIPTokenizer.from_pretrained(version)
-        self.transformer = CLIPTextModel.from_pretrained(version)
+        self.tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+        self.transformer = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14")
         self.device = device
         self.max_length = max_length
         if freeze:

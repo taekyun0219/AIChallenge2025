@@ -36,7 +36,7 @@ def save_images(samples, batch, save_root, name_prompt=False):
             grid = grid.cpu().numpy()
             grid = (grid * 255).astype(np.uint8)
             if name_prompt:
-                filename =img_name.split('.')[0]+'_'+batch['txt'][i][0:150]+'.png'
+                filename =img_name.split('.')[0]+'.png'
             else:
                 filename =img_name.replace("jpg","png")
             path = os.path.join(save_root, filename)
@@ -195,7 +195,8 @@ class ControlLDM_cat(LatentDiffusion):
         ddim_steps=50 
         ddim_eta=0.0
         unconditional_guidance_scale=4.5  
-        save_root = './image_log/test_%s_ug_%.1f'%(start_time,unconditional_guidance_scale)
+        #save_root = './image_log/test_%s_ug_%.1f'%(start_time,unconditional_guidance_scale)
+        save_root = './image_log/test_output'
 
         use_ddim = ddim_steps is not None
         z, c, x = self.get_input(batch,None)

@@ -6,7 +6,7 @@ from cldm.logger import ImageLogger
 from cldm.model import create_model, load_state_dict
 import time
 import torch
-from share import *
+#from share import *
 
 
 
@@ -90,14 +90,14 @@ if __name__ == "__main__":
 
     else: # test or val
     
-        resume_path='.models/xxxxx.ckpt'
+        resume_path='./models/multi_weight.ckpt'
 
         batch_size = 1 
 
         model = create_model('configs/cldm_v15_ehdecoder.yaml').cpu()
-        model.load_state_dict(load_state_dict(resume_path, location='cpu'))
+        model.load_state_dict(load_state_dict(resume_path, location='cpu'), strict=False)
     
-        trainer = pl.Trainer(gpus=1, precision=32)
+        trainer = pl.Trainer(accelerator="gpu", devices=1, precision=32)
         if args.multicolor: # test demo
             if args.usesam: # -m -s
                 model.usesam = True
@@ -111,7 +111,7 @@ if __name__ == "__main__":
                 trainer.test(model, dataloader)
         else: # val
             model.usesam = False
-            dataset = MyDataset(img_dir="/data/cz-data/coco/", caption_dir='resources/coco', split='val') # 
+            dataset = MyDataset(img_dir="./data/test/input_image", caption_dir='./resources/coco', split='val',use_sam=False)  
             dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size, shuffle=False)
             trainer.test(model, dataloader)
 
